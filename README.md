@@ -1,50 +1,122 @@
 # CloudflareBackup
-A Windows script to create Cloudflare configuration backups using curl.
+Cross-platform scripts to create comprehensive Cloudflare configuration backups using curl and the Cloudflare API.
 
-## Prepare the script
+## Available Scripts
+
+- **Windows**: `Cloudflare_backup.bat` - Batch script for Windows systems
+- **macOS/Linux**: `cloudflare_backup.sh` - Bash script for Unix-like systems
+
+## Setup
 
 1. Create a folder for your backups
-2. Download the batch file to the new folder
-3. Updated the batch file as required (*)
+2. Download the appropriate script for your operating system
+3. Configure the script with your credentials and zone information (see Configuration section)
 
-## To run this script via File Explorer
+## Running the Scripts
 
+### Windows (Batch Script)
+**Via File Explorer:**
 1. Browse to the backup folder
-2. Double-click the batch file
+2. Double-click `Cloudflare_backup.bat`
 
-## To run this script via Command Prompt
-
-1. Open the command prompt
+**Via Command Prompt:**
+1. Open Command Prompt
 2. Navigate to the backup folder
-3. Execute the script
+3. Execute: `Cloudflare_backup.bat`
 
-## Output structure
+### macOS/Linux (Bash Script)
+**Via Terminal:**
+1. Make the script executable: `chmod +x cloudflare_backup.sh`
+2. Run the script: `./cloudflare_backup.sh`
 
-1. The folder name convention will be
-      - Backup root (where you drop the script)
-         - Backup root\Domain 
-            - Backup root\Domain\YYYY-MM-DD HH:MM:SS
-         - Backup root\account (for Load Balancer Pools)
+## Configuration
 
-![Backup folder structure](https://github.com/freitasm/CloudflareBackup/assets/20156997/2165b7d4-7b35-4341-b43e-91ce07d3637d)
+### Windows Script (Cloudflare_backup.bat)
+Replace the following placeholders:
+- `[REPLACE WITH YOUR CLOUDFLARE LOGIN EMAIL]`: Your Cloudflare login email
+- `[REPLACE WITH YOUR API KEY]`: API key with read permissions for all zones
 
-## Comments
+For each zone (up to 9 zones by default):
+- `[REPLACE WITH ZONE ID TO BACKUP]`: The Zone ID from Cloudflare dashboard
+- `[REPLACE WITH DOMAIN NAME FOR THIS ZONE]`: Domain name for folder organization
 
-1. This is not a full backup, as most account settings are not being copied
-2. This script was tested with Free and Pro zones in the same account
+To modify zone count:
+- Add/remove `ZoneID#` and `Domain#` pairs
+- Update the loop counter in `for /L %%i in (1,1,9)` (change 9 to your zone count)
 
-## (*) Updating the batch file
+### macOS/Linux Script (cloudflare_backup.sh)
+Replace the following placeholders:
+- `[REPLACE WITH YOUR API TOKEN]`: Bearer token with read permissions
+- Update the `ZONE_IDS` array with your zone IDs
+- Update the `DOMAINS` array with corresponding domain names
 
-1. Find the following items to replace:
-   - [REPLACE WITH YOUR CLOUDFLARE LOGIN EMAIL]: Enter your Cloudflare login email
-   - [REPLACE WITH YOUR API KEY]: Enter an API key with Read rights to all zones
-2. For each Zone you want to create a backup for:
-   - Update the line ZoneID#, Domain#
-      - The sample script has nine zones ZoneID1 ... ZoneID9 and corresponding Domain1 ... Domain9
-      - You can remove pairs if you have less than nine zones
-      - You can add pairs if you have more than nine zones, remembering to name the pair correctly with the sequential numbers
-      - If you add or remove pairs, adjust the "for /L %%i in (1,1,9) do (" statement replacing 9 with the correct number of pairs
-   - [REPLACE WITH ZONE ID TO BACKUP]: Enter the Zone ID
-   - [REPLACE WITH DOMAIN NAME FOR THIS ZONE]: Enter the domain name to be used as a sub-folder
-3. Load Balancer pools are copied from account, so these need to be manually updated, with the correct Load Balance Pool
-   - If you don't use Load Balancers you can remove the commands between the comments :: Backup account level data and :: End Backup account level data
+For load balancer pools (optional):
+- Uncomment the account-level backup section
+- Replace `[REPLACE WITH LOAD BALANCER POOL ID]` with actual pool IDs
+
+## What Gets Backed Up
+
+Both scripts create comprehensive backups of the following Cloudflare configurations:
+
+### Zone-Level Data
+- **DNS Records** - All DNS entries for the zone
+- **WAF Rules** - Web Application Firewall rules and configurations
+- **Custom Pages** - Custom error pages and challenge pages
+- **DNSSEC** - DNSSEC configuration and keys
+- **IP Access Rules** - IP allowlist/blocklist rules
+- **Load Balancers** - Zone-specific load balancer configurations
+- **Page Shield** - Content Security Policy and script monitoring
+- **Rate Limits** - Rate limiting rules and thresholds
+- **Transform Rules** - URL rewrites, header modifications
+- **Cache Rules** - Caching behavior and bypass rules
+- **Redirect Rules** - URL redirects and forwarding
+- **Origin Rules** - Origin server configurations
+- **URL Normalization** - URL normalization settings
+- **User Agent Blocking** - UA-based blocking rules
+- **WAF Overrides** - Custom WAF rule overrides
+- **Security Settings** - Security level, challenge TTL, browser checks
+- **Configuration Rules** - Zone-specific configuration overrides
+
+### Account-Level Data (Optional)
+- **Load Balancer Pools** - Account-wide load balancer pool configurations
+- **Pool Details** - Detailed configuration for specific pools
+## Output Structure
+
+Backups are organized in the following folder structure:
+```
+Backup Root/
+├── Domain1/
+│   └── YYYY-MM-DD HH-MM-SS/
+│       ├── DNS.txt
+│       ├── WAF.txt
+│       ├── Settings.txt
+│       └── [other configuration files]
+├── Domain2/
+│   └── YYYY-MM-DD HH-MM-SS/
+└── account/
+    └── YYYY-MM-DD HH-MM-SS/
+        └── Load-Balancers-Pools.txt
+```
+
+Each backup creates timestamped folders containing JSON files with configuration data from the Cloudflare API.
+
+## Authentication Methods
+
+- **Windows Script**: Uses email + API key authentication (`X-Auth-Email` and `X-Auth-Key` headers)
+- **macOS/Linux Script**: Uses Bearer token authentication (`Authorization: Bearer` header)
+
+Both methods require read permissions for all zones you want to backup.
+
+## Important Notes
+
+- This creates configuration backups, not a complete account backup
+- Account-level settings (billing, team members, etc.) are not included
+- Scripts have been tested with Free and Pro zones
+- All API responses are saved as JSON files for easy parsing and restoration
+- Load balancer pool backups are optional and can be disabled if not needed
+
+## Requirements
+
+- `curl` command-line tool (included in most modern operating systems)
+- Valid Cloudflare API credentials with appropriate permissions
+- Network access to Cloudflare API endpoints
