@@ -33,26 +33,26 @@ Cross-platform scripts to create comprehensive Cloudflare configuration backups 
 
 ### Windows Script (Cloudflare_backup.bat)
 Replace the following placeholders:
-- `[REPLACE WITH YOUR CLOUDFLARE LOGIN EMAIL]`: Your Cloudflare login email
-- `[REPLACE WITH YOUR API KEY]`: API key with read permissions for all zones
+- `[REPLACE WITH YOUR API TOKEN]`: API token with read permissions for all zones
 
-For each zone (up to 9 zones by default):
-- `[REPLACE WITH ZONE ID TO BACKUP]`: The Zone ID from Cloudflare dashboard
-- `[REPLACE WITH DOMAIN NAME FOR THIS ZONE]`: Domain name for folder organization
+Configure domains (zone IDs are auto-discovered):
+- `Domain1`, `Domain2`, etc.: Your domain names (e.g., "example.com")
+- **Maximum 9 domains by default**
 
-To modify zone count:
-- Add/remove `ZoneID#` and `Domain#` pairs
-- Update the loop counter in `for /L %%i in (1,1,9)` (change 9 to your zone count)
+**To support more than 9 domains:**
+1. Add more domain variables: `set "Domain10="`, `set "Domain11="`, etc.
+2. Update the loop counter: Change `for /L %%i in (1,1,9)` to `for /L %%i in (1,1,N)` where N is your total domain count
+3. Update the account ID collection loop similarly
+
+**To use fewer domains:**
+- Simply leave unused domain variables empty (e.g., `set "Domain3=""`)
 
 ### macOS/Linux Script (cloudflare_backup.sh)
 Replace the following placeholders:
-- `[REPLACE WITH YOUR API TOKEN]`: Bearer token with read permissions
-- Update the `ZONE_IDS` array with your zone IDs
-- Update the `DOMAINS` array with corresponding domain names
+- `[REPLACE WITH YOUR API TOKEN]`: API token with read permissions for all zones
+- Update the `DOMAINS` array with your domain names (e.g., `DOMAINS=("example.com" "example.org")`)
 
-For load balancer pools (optional):
-- Uncomment the account-level backup section
-- Replace `[REPLACE WITH LOAD BALANCER POOL ID]` with actual pool IDs
+**No domain count limit** - add as many domains as needed to the array
 
 ## What Gets Backed Up
 
@@ -65,24 +65,28 @@ Both scripts create comprehensive backups of the following Cloudflare configurat
 - **DNSSEC** - DNSSEC configuration and keys
 - **IP Access Rules** - IP allowlist/blocklist rules
 - **Load Balancers** - Zone-specific load balancer configurations
+- **Page Rules** - Page rules for URL-based configurations
 - **Page Shield** - Content Security Policy and script monitoring
-- **Rate Limits** - Rate limiting rules and thresholds
-- **Transform Rules** - URL rewrites, header modifications
+- **Rate Limits** - Rate limiting rules and thresholds (new rulesets API)
+- **Transform Rules** - URL rewrites, header modifications (request/response)
+- **Managed Transforms** - Managed header transformations
 - **Cache Rules** - Caching behavior and bypass rules
 - **Redirect Rules** - URL redirects and forwarding
 - **Origin Rules** - Origin server configurations
 - **URL Normalization** - URL normalization settings
-- **User Agent Blocking** - UA-based blocking rules
 - **WAF Overrides** - Custom WAF rule overrides
-- **Security Settings** - Security level, challenge TTL, browser checks
 - **Configuration Rules** - Zone-specific configuration overrides
+- **Security Settings** - Security level, challenge TTL, browser checks, insecure JS replacement
+- **General Settings** - All zone settings
 
-### Account-Level Data (Optional)
+### Account-Level Data
+- **IP Lists** - Account-wide IP lists metadata
+- **IP List Items** - Individual items for each IP list
 - **Load Balancer Pools** - Account-wide load balancer pool configurations
-- **Pool Details** - Detailed configuration for specific pools
 ## Output Structure
 
 Backups are organized in the following folder structure:
+
 ```
 Backup Root/
 ├── Domain1/
@@ -95,17 +99,18 @@ Backup Root/
 │   └── YYYY-MM-DD HH-MM-SS/
 └── account/
     └── YYYY-MM-DD HH-MM-SS/
-        └── Load-Balancers-Pools.txt
+        └── IP-Lists.txt
 ```
 
 Each backup creates timestamped folders containing JSON files with configuration data from the Cloudflare API.
 
 ## Authentication Methods
 
-- **Windows Script**: Uses email + API key authentication (`X-Auth-Email` and `X-Auth-Key` headers)
-- **macOS/Linux Script**: Uses Bearer token authentication (`Authorization: Bearer` header)
+Both scripts now use **Bearer token authentication** (`Authorization: Bearer` header) - the modern Cloudflare API standard.
 
-Both methods require read permissions for all zones you want to backup.
+- Create an API token at: https://dash.cloudflare.com/profile/api-tokens
+- Required permissions: Read access for all zones and account settings
+- Token is more secure than legacy API key + email authentication
 
 ## Important Notes
 
@@ -113,10 +118,16 @@ Both methods require read permissions for all zones you want to backup.
 - Account-level settings (billing, team members, etc.) are not included
 - Scripts have been tested with Free and Pro zones
 - All API responses are saved as JSON files for easy parsing and restoration
-- Load balancer pool backups are optional and can be disabled if not needed
+- **Windows script limitation**: Maximum 9 domains by default (can be extended manually)
+- **macOS/Linux script**: No domain count limit
+- Zone IDs and Account IDs are automatically discovered from domain names
 
 ## Requirements
 
 - `curl` command-line tool (included in most modern operating systems)
-- Valid Cloudflare API credentials with appropriate permissions
+- `jq` command-line JSON processor (for parsing API responses)
+  - Windows: Download from https://jqlang.github.io/jq/download/
+  - macOS: `brew install jq`
+  - Linux: `apt install jq` or `yum install jq`
+- Valid Cloudflare API token with appropriate read permissions
 - Network access to Cloudflare API endpoints

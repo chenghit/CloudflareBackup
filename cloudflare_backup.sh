@@ -1,147 +1,176 @@
 #!/bin/bash
 
 # Cloudflare Backup Script for macOS
-# Based on freitasm/CloudflareBackup
+# Optimized version with associative arrays and auto zone discovery
 
-# Generate timestamp
+set -euo pipefail
+
+# Configuration
+API_TOKEN="[REPLACE WITH YOUR API TOKEN]"
 BATCH_DATE=$(date +"%Y-%m-%d")
 BATCH_TIME=$(date +"%H-%M-%S")
 
-# API token
-API_TOKEN="[REPLACE WITH YOUR API TOKEN]"
+# Define domains - zone IDs will be auto-discovered
+DOMAINS=("[REPLACE WITH DOMAIN 1]" "[REPLACE WITH DOMAIN 2]")
 
-# Define zone ID and domain pairs
-declare -a ZONE_IDS=("[REPLACE WITH ZONE ID TO BACKUP]" "[REPLACE WITH ZONE ID TO BACKUP]" "[REPLACE WITH ZONE ID TO BACKUP]")
-declare -a DOMAINS=("[REPLACE WITH DOMAIN NAME FOR THIS ZONE]" "[REPLACE WITH DOMAIN NAME FOR THIS ZONE]" "[REPLACE WITH DOMAIN NAME FOR THIS ZONE]")
+# Function to get account ID
+get_account_id() {
+    curl -s -X GET "https://api.cloudflare.com/client/v4/accounts" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json" | \
+        jq -r '.result[0].id // empty'
+}
 
-# Loop through zones
-for i in "${!ZONE_IDS[@]}"; do
-    ZONE_ID="${ZONE_IDS[$i]}"
-    DOMAIN="${DOMAINS[$i]}"
-    FULL_FOLDER="$DOMAIN/$BATCH_DATE $BATCH_TIME"
+# Function to get zone ID for a domain
+get_zone_id() {
+    local domain=$1
+    curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$domain" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json" | \
+        jq -r '.result[0].id // empty'
+}
+
+# Function to get account ID from zone
+get_account_id_from_zone() {
+    local zone_id=$1
+    curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_id" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json" | \
+        jq -r '.result.account.id // empty'
+}
+
+# Function to backup zone data
+backup_zone() {
+    local zone_id=$1
+    local domain=$2
+    local folder="$domain/$BATCH_DATE $BATCH_TIME"
     
-    echo "ZoneID=$ZONE_ID"
-    echo "Domain=$DOMAIN"
-    echo "FullFolder=$FULL_FOLDER"
+    echo "Backing up $domain (Zone ID: $zone_id)"
+    mkdir -p "$folder"
     
-    mkdir -p "$FULL_FOLDER"
+    # Define backup endpoints (file:endpoint pairs)
+    local endpoints=(
+        "WAF.txt:firewall/rules?per_page=100"
+        "Custom-Pages.txt:custom_pages"
+        "DNS.txt:dns_records"
+        "DNSSEC.txt:dnssec"
+        "IP-Access-Rules.txt:firewall/access_rules/rules"
+        "Load-Balancers.txt:load_balancers"
+        "Page-Rules.txt:pagerules"
+        "Page_Shield.txt:page_shield"
+        "Rate-limits.txt:rulesets/phases/http_ratelimit/entrypoint"
+        "Transform-Rewrite-URL.txt:rulesets/phases/http_request_transform/entrypoint"
+        "Transform-Modify-Request-Header.txt:rulesets/phases/http_request_late_transform/entrypoint"
+        "Transform-Modify-Response-Headers.txt:rulesets/phases/http_response_headers_transform/entrypoint"
+        "Transform-Managed-Transforms.txt:managed_headers"
+        "Cache-Rules.txt:rulesets/phases/http_request_cache_settings/entrypoint"
+        "Redirect-Rules.txt:rulesets/phases/http_request_dynamic_redirect/entrypoint"
+        "Origin-Rules.txt:rulesets/phases/http_request_origin/entrypoint"
+        "URL-Normalisation.txt:url_normalization"
+        "WAF-Overrides.txt:firewall/waf/overrides"
+        "Settings.txt:settings"
+        "Configuration-Rules.txt:rulesets/phases/http_config_settings/entrypoint"
+        "Security-Security-level.txt:settings/security_level"
+        "Security-Challenge-TTL.txt:settings/challenge_ttl"
+        "Security-Browser-Check.txt:settings/browser_check"
+        "Security-replace-insecure-s.txt:settings/replace_insecure_js"
+    )
     
-    # Backup zone configurations
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/firewall/rules?per_page=100" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/WAF.txt"
+    # Backup each endpoint
+    for entry in "${endpoints[@]}"; do
+        local file="${entry%%:*}"
+        local endpoint="${entry#*:}"
+        local response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_id/$endpoint" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json")
+        
+        # Skip if error 10003 (no configuration exists)
+        if echo "$response" | grep -q '"code": 10003'; then
+            echo "  ⊘ Skipped $endpoint (not configured)"
+            continue
+        fi
+        
+        echo "$response" > "$folder/$file"
+        echo "  ✓ Backed up $endpoint"
+    done
     
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/custom_pages" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Custom-Pages.txt"
+    echo "✓ Backup completed for $domain"
+}
+
+# Function to backup account-level data
+backup_account() {
+    local account_id=$1
+    local folder="account/$BATCH_DATE $BATCH_TIME"
     
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/DNS.txt"
+    echo "Backing up account-level resources (Account ID: $account_id)"
+    mkdir -p "$folder"
     
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dnssec" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/DNSSEC.txt"
+    # Backup IP Lists metadata
+    local lists_response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/$account_id/rules/lists" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json")
     
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/firewall/access_rules/rules" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/IP-Access-Rules.txt"
+    echo "$lists_response" > "$folder/IP-Lists.txt"
+    echo "  ✓ Backed up rules/lists"
     
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/load_balancers" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Load-Balancers.txt"
+    # Backup items for each list
+    local list_ids=$(echo "$lists_response" | jq -r '.result[]?.id // empty')
+    for list_id in $list_ids; do
+        local list_name=$(echo "$lists_response" | jq -r ".result[] | select(.id==\"$list_id\") | .name")
+        local items_response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/$account_id/rules/lists/$list_id/items" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json")
+        echo "$items_response" > "$folder/IP-List-Items-$list_name.txt"
+        echo "  ✓ Backed up items for list: $list_name"
+    done
     
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/page_shield" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Page_Shield.txt"
+    # Backup Load Balancer Pools
+    local response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/$account_id/load_balancers/pools" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json")
     
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rate_limits" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Rate-Limits.txt"
+    if echo "$response" | grep -q '"code": 10003'; then
+        echo "  ⊘ Skipped load_balancers/pools (not configured)"
+    else
+        echo "$response" > "$folder/Load-Balancer-Pools.txt"
+        echo "  ✓ Backed up load_balancers/pools"
+    fi
     
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/phases/http_request_transform/entrypoint" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Transform-Rewrite-URL.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/phases/http_request_late_transform/entrypoint" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Transform-Modify-Request-Header.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/phases/http_response_headers_transform/entrypoint" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Transform-Modify-Response-Headers.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/managed_headers" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Transform-Managed-Transforms.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/phases/http_request_cache_settings/entrypoint" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Cache-Rules.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/phases/http_request_dynamic_redirect/entrypoint" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Redirect-Rules.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/phases/http_request_origin/entrypoint" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Origin-Rules.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/url_normalization" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/URL-Normalisation.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/firewall/ua_rules" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/UA-Blocking.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/firewall/waf/overrides" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/WAF-Overrides.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/settings" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Settings.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/rulesets/phases/http_config_settings/entrypoint" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Configuration-Rules.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/settings/security_level" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Security-Security-level.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/settings/challenge_ttl" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Security-Challenge-TTL.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/settings/browser_check" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Security-Browser-Check.txt"
-    
-    curl -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/settings/replace_insecure_js" \
-        -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-        -o "$FULL_FOLDER/Security-replace-insecure-s.txt"
-    
-    echo
+    echo "✓ Account backup completed"
+}
+
+# Main execution
+echo "Starting Cloudflare backup..."
+
+# Collect all unique account IDs from zones
+account_ids=""
+for domain in "${DOMAINS[@]}"; do
+    zone_id=$(get_zone_id "$domain")
+    if [[ -n "$zone_id" ]]; then
+        account_id=$(get_account_id_from_zone "$zone_id")
+        if [[ -n "$account_id" ]] && [[ ! " $account_ids " =~ " $account_id " ]]; then
+            account_ids="$account_ids $account_id"
+        fi
+    fi
 done
 
-# Uncomment and update these if you have load balancer pools
+# Backup account-level resources for each unique account
+for account_id in $account_ids; do
+    backup_account "$account_id"
+done
 
-# Backup account level data
-# FOLDER_ACCOUNT="account/$BATCH_DATE $BATCH_TIME"
-# mkdir -p "$FOLDER_ACCOUNT"
+# Backup zones
+for domain in "${DOMAINS[@]}"; do
+    echo "Processing $domain..."
+    
+    zone_id=$(get_zone_id "$domain")
+    
+    if [[ -z "$zone_id" ]]; then
+        echo "❌ Error: Could not find zone ID for $domain"
+        continue
+    fi
+    
+    backup_zone "$zone_id" "$domain"
+done
 
-# curl -X GET "https://api.cloudflare.com/client/v4/user/load_balancers/pools" \
-#     -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-#     -o "$FOLDER_ACCOUNT/Load-Balancers-Pools.txt"
-
-# curl -X GET "https://api.cloudflare.com/client/v4/user/load_balancers/pools/[REPLACE WITH LOAD BALANCER POOL ID 1]" \
-#     -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-#     -o "$FOLDER_ACCOUNT/Load-Balancers-Pools-Details-1.txt"
-
-# curl -X GET "https://api.cloudflare.com/client/v4/user/load_balancers/pools/[REPLACE WITH LOAD BALANCER POOL ID 2]" \
-#     -H "Authorization: Bearer $API_TOKEN" -H "Content-Type: application/json" \
-#     -o "$FOLDER_ACCOUNT/Load-Balancers-Pools-Details-2.txt"
-
-echo "Backup completed!"
+echo "All backups completed!"
