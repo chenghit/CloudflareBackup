@@ -59,30 +59,73 @@ Replace the following placeholders:
 Both scripts create comprehensive backups of the following Cloudflare configurations:
 
 ### Zone-Level Data
+
+#### Legacy Endpoints
 - **DNS Records** - All DNS entries for the zone
-- **WAF Rules** - Web Application Firewall rules and configurations
+- **WAF Rules** - Web Application Firewall rules (legacy)
 - **Custom Pages** - Custom error pages and challenge pages
 - **DNSSEC** - DNSSEC configuration and keys
 - **IP Access Rules** - IP allowlist/blocklist rules
 - **Load Balancers** - Zone-specific load balancer configurations
 - **Page Rules** - Page rules for URL-based configurations
 - **Page Shield** - Content Security Policy and script monitoring
-- **Rate Limits** - Rate limiting rules and thresholds (new rulesets API)
-- **Transform Rules** - URL rewrites, header modifications (request/response)
-- **Managed Transforms** - Managed header transformations
-- **Cache Rules** - Caching behavior and bypass rules
-- **Redirect Rules** - URL redirects and forwarding
-- **Origin Rules** - Origin server configurations
-- **URL Normalization** - URL normalization settings
 - **WAF Overrides** - Custom WAF rule overrides
-- **Configuration Rules** - Zone-specific configuration overrides
-- **Security Settings** - Security level, challenge TTL, browser checks, insecure JS replacement
 - **General Settings** - All zone settings
+
+#### Modern Rules API
+- **Rate Limits** - Rate limiting rules (http_ratelimit phase)
+- **URL Normalization** - URL normalization settings
+- **Managed Transforms** - Managed header transformations
+- **Cache Rules** - Caching behavior rules (http_request_cache_settings phase)
+- **Configuration Rules** - Zone configuration overrides (http_config_settings phase)
+- **Redirect Rules** - URL redirects (http_request_dynamic_redirect phase)
+- **Origin Rules** - Origin server configurations (http_request_origin phase)
+- **Custom Error Rules** - Custom error responses (http_custom_errors phase)
+- **URL Rewrite Rules** - URL rewrites (http_request_transform phase)
+- **Request Header Transform** - Request header modifications (http_request_late_transform phase)
+- **Response Header Transform** - Response header modifications (http_response_headers_transform phase)
+- **Compression Rules** - Compression settings (http_request_compress phase)
+
+#### CDN and Performance Settings
+- **Smart Tiered Cache** - Smart tiered caching configuration
+- **Cache Reserve** - Cache reserve settings
+- **Argo Smart Routing** - Argo smart routing status
+- **Tiered Caching** - Tiered caching configuration
+
+#### Zone Settings
+- **Always Online** - Always online mode
+- **Development Mode** - Development mode status
+- **Early Hints** - Early hints configuration
+- **HTTP/2** - HTTP/2 support
+- **HTTP/3** - HTTP/3 (QUIC) support
+- **IPv6** - IPv6 compatibility
+- **WebSockets** - WebSocket support
+- **TLS 1.3** - TLS 1.3 configuration
+- **Min TLS Version** - Minimum TLS version
+- **Zero RTT** - 0-RTT connection resumption
+- **Image Resizing** - Image resizing settings
+- **Prefetch Preload** - Prefetch and preload settings
+- **Proxy Read Timeout** - Proxy read timeout
+- **Opportunistic Encryption** - Opportunistic encryption
+- **TLS Client Auth** - TLS client authentication
+- **Ciphers** - Cipher suite configuration
+- **WebP** - WebP image conversion
+- **Hotlink Protection** - Hotlink protection
+- **Server Side Excludes** - Server-side excludes
+
+#### Security Settings
+- **Security Level** - Security level setting
+- **Challenge TTL** - Challenge page TTL
+- **Browser Check** - Browser integrity check
+- **Replace Insecure JS** - Insecure JavaScript replacement
+- **WAF Setting** - WAF on/off status
 
 ### Account-Level Data
 - **IP Lists** - Account-wide IP lists metadata
-- **IP List Items** - Individual items for each IP list
+- **IP List Items** - Individual items for each list (with kind and name)
+- **Bulk Redirect Rules** - Account-level bulk redirect rulesets
 - **Load Balancer Pools** - Account-wide load balancer pool configurations
+
 ## Output Structure
 
 Backups are organized in the following folder structure:
@@ -94,19 +137,24 @@ Backup Root/
 │       ├── DNS.txt
 │       ├── WAF.txt
 │       ├── Settings.txt
+│       ├── Cache-Rules.txt
+│       ├── Rate-limits.txt
 │       └── [other configuration files]
 ├── Domain2/
 │   └── YYYY-MM-DD HH-MM-SS/
 └── account/
     └── YYYY-MM-DD HH-MM-SS/
-        └── IP-Lists.txt
+        ├── IP-Lists.txt
+        ├── List-Items-ip-MyIPList.txt
+        ├── Bulk-Redirect-Rules.txt
+        └── Load-Balancer-Pools.txt
 ```
 
 Each backup creates timestamped folders containing JSON files with configuration data from the Cloudflare API.
 
 ## Authentication Methods
 
-Both scripts now use **Bearer token authentication** (`Authorization: Bearer` header) - the modern Cloudflare API standard.
+Both scripts use **Bearer token authentication** (`Authorization: Bearer` header) - the modern Cloudflare API standard.
 
 - Create an API token at: https://dash.cloudflare.com/profile/api-tokens
 - Required permissions: Read access for all zones and account settings
@@ -121,6 +169,7 @@ Both scripts now use **Bearer token authentication** (`Authorization: Bearer` he
 - **Windows script limitation**: Maximum 9 domains by default (can be extended manually)
 - **macOS/Linux script**: No domain count limit
 - Zone IDs and Account IDs are automatically discovered from domain names
+- Some endpoints may return errors for features not enabled on your plan (these are skipped in the shell script)
 
 ## Requirements
 
