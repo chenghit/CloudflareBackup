@@ -3,7 +3,7 @@ Cross-platform scripts to create comprehensive Cloudflare configuration backups 
 
 ## Available Scripts
 
-- **Windows**: `Cloudflare_backup.bat` - Batch script for Windows systems
+- **Windows**: `cloudflare_backup.bat` - Batch script for Windows systems
 - **macOS/Linux**: `cloudflare_backup.sh` - Bash script for Unix-like systems
 
 ## Setup
@@ -17,12 +17,12 @@ Cross-platform scripts to create comprehensive Cloudflare configuration backups 
 ### Windows (Batch Script)
 **Via File Explorer:**
 1. Browse to the backup folder
-2. Double-click `Cloudflare_backup.bat`
+2. Double-click `cloudflare_backup.bat`
 
 **Via Command Prompt:**
 1. Open Command Prompt
 2. Navigate to the backup folder
-3. Execute: `Cloudflare_backup.bat`
+3. Execute: `cloudflare_backup.bat`
 
 ### macOS/Linux (Bash Script)
 **Via Terminal:**
@@ -31,7 +31,7 @@ Cross-platform scripts to create comprehensive Cloudflare configuration backups 
 
 ## Configuration
 
-### Windows Script (Cloudflare_backup.bat)
+### Windows Script (cloudflare_backup.bat)
 Replace the following placeholders:
 - `[REPLACE WITH YOUR API TOKEN]`: API token with read permissions for all zones
 
