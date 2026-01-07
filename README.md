@@ -120,6 +120,9 @@ Both scripts create comprehensive backups of the following Cloudflare configurat
 - **Replace Insecure JS** - Insecure JavaScript replacement
 - **WAF Setting** - WAF on/off status
 
+#### Cloudflare for SaaS
+- **Fallback Origin** - SaaS custom hostname fallback origin configuration
+
 ### Account-Level Data
 - **IP Lists** - Account-wide IP lists metadata
 - **IP List Items** - Individual items for each list (with kind and name)

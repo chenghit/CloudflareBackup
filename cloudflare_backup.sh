@@ -101,6 +101,9 @@ backup_zone() {
         "Security-Browser-Check.txt:settings/browser_check"
         "Security-replace-insecure-s.txt:settings/replace_insecure_js"
         "WAF-Setting.txt:settings/waf"
+        
+        # Cloudflare for SaaS
+        "SaaS-Fallback-Origin.txt:custom_hostnames/fallback_origin"
     )
     
     # Backup each endpoint
