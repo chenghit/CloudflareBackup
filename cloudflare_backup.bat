@@ -89,17 +89,18 @@ for /L %%i in (1,1,9) do (
             echo Backing up !Domain%%i! (Zone ID: !ZoneID!)
             md "!FullFolder!"
             
+            :: Modern WAF Rules API endpoints
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/rulesets/phases/http_request_firewall_custom/entrypoint" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\WAF-Custom-Rules.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/rulesets/phases/http_request_firewall_managed/entrypoint" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\WAF-Managed-Rules.txt"
+            
             :: Legacy endpoints
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/firewall/rules?per_page=100" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\WAF.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/custom_pages" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Custom-Pages.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/dns_records" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\DNS.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/dnssec" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\DNSSEC.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/firewall/access_rules/rules" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\IP-Access-Rules.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/load_balancers" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Load-Balancers.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/pagerules" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Page-Rules.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/page_shield" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Page_Shield.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Settings.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/firewall/waf/overrides" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\WAF-Overrides.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/custom_hostnames/fallback_origin" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\SaaS-Fallback-Origin.txt"
             
             :: Modern Rules API endpoints
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/rulesets/phases/http_ratelimit/entrypoint" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Rate-limits.txt"
@@ -122,35 +123,29 @@ for /L %%i in (1,1,9) do (
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/argo/tiered_caching" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Tiered-Cache.txt"
             
             :: Zone Settings
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/always_online" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Always-Online.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/development_mode" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Development-Mode.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/early_hints" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Early-Hints.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/http2" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\HTTP2.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/http3" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\HTTP3.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/ipv6" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\IPv6.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/websockets" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\WebSockets.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/tls_1_3" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\TLS-1-3.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/min_tls_version" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Min-TLS-Version.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/ciphers" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Ciphers.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/http3" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\HTTP3.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/http2" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\HTTP2.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/ipv6" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\IPv6.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/0rtt" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Zero-RTT.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/websockets" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\WebSockets.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/early_hints" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Early-Hints.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/image_resizing" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Image-Resizing.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/prefetch_preload" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Prefetch-Preload.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/proxy_read_timeout" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Proxy-Read-Timeout.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/webp" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\WebP.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/development_mode" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Development-Mode.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/always_online" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Always-Online.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/hotlink_protection" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Hotlink-Protection.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/server_side_excludes" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Server-Side-Excludes.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/opportunistic_encryption" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Opportunistic-Encryption.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/tls_client_auth" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\TLS-Client-Auth.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/ciphers" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Ciphers.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/webp" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\WebP.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/hotlink_protection" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Hotlink-Protection.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/server_side_excludes" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Server-Side-Excludes.txt"
             
             :: Security settings
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/security_level" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Security-Security-level.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/challenge_ttl" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Security-Challenge-TTL.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/browser_check" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Security-Browser-Check.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/replace_insecure_js" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Security-replace-insecure-s.txt"
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/waf" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\WAF-Setting.txt"
-            
-            :: Cloudflare for SaaS
-            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/custom_hostnames/fallback_origin" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\SaaS-Fallback-Origin.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/security_level" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Security-level.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/challenge_ttl" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Challenge-TTL.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/browser_check" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Browser-Check.txt"
             
             echo Backup completed for !Domain%%i!
             echo.

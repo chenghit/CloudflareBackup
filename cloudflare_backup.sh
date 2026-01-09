@@ -42,68 +42,60 @@ backup_zone() {
     
     # Define backup endpoints (file:endpoint pairs)
     local endpoints=(
-        # Legacy endpoints (still useful for reference)
-        "WAF.txt:firewall/rules?per_page=100"
-        "Custom-Pages.txt:custom_pages"
-        "DNS.txt:dns_records"
-        "DNSSEC.txt:dnssec"
-        "IP-Access-Rules.txt:firewall/access_rules/rules"
-        "Load-Balancers.txt:load_balancers"
-        "Page-Rules.txt:pagerules"
-        "Page_Shield.txt:page_shield"
-        "Settings.txt:settings"
-        "WAF-Overrides.txt:firewall/waf/overrides"
-        
-        # Modern Rules API endpoints
+        # Modern Rulesets API endpoints
+        "WAF-Custom-Rules.txt:rulesets/phases/http_request_firewall_custom/entrypoint"
+        "WAF-Managed-Rules.txt:rulesets/phases/http_request_firewall_managed/entrypoint"
         "Rate-limits.txt:rulesets/phases/http_ratelimit/entrypoint"
-        "URL-Normalization.txt:url_normalization"
-        "Managed-Transforms.txt:managed_headers"
         "Cache-Rules.txt:rulesets/phases/http_request_cache_settings/entrypoint"
         "Configuration-Rules.txt:rulesets/phases/http_config_settings/entrypoint"
         "Redirect-Rules.txt:rulesets/phases/http_request_dynamic_redirect/entrypoint"
         "Origin-Rules.txt:rulesets/phases/http_request_origin/entrypoint"
-        "Custom-Error-Rules.txt:rulesets/phases/http_custom_errors/entrypoint"
+        "Compression-Rules.txt:rulesets/phases/http_request_compress/entrypoint"
         "URL-Rewrite-Rules.txt:rulesets/phases/http_request_transform/entrypoint"
         "Request-Header-Transform.txt:rulesets/phases/http_request_late_transform/entrypoint"
-        "Response-Header-Transform.txt:rulesets/phases/http_response_headers_transform/entrypoint"
-        "Compression-Rules.txt:rulesets/phases/http_request_compress/entrypoint"
-        
-        # CDN and Performance Settings (not covered by Rules)
+        "Response-Header-Transform.txt:rulesets/phases/http_response_headers_transform/entrypoint"        
+        "Custom-Error-Rules.txt:rulesets/phases/http_custom_errors/entrypoint"
+
+        # Core Infrastructure
+        "DNS.txt:dns_records"
+        "DNSSEC.txt:dnssec"
+        "Load-Balancers.txt:load_balancers"
+        "SaaS-Fallback-Origin.txt:custom_hostnames/fallback_origin"
+        "IP-Access-Rules.txt:firewall/access_rules/rules"
+
+        # CDN and Performance Settings
         "Smart-Tiered-Cache.txt:cache/smart_tiered_cache"
         "Cache-Reserve.txt:cache/cache_reserve"
         "Argo-Smart-Routing.txt:argo/smart_routing"
         "Tiered-Cache.txt:argo/tiered_caching"
-        
+        "URL-Normalization.txt:url_normalization"
+
         # Zone Settings (only those NOT covered by new Rules to avoid duplicates)
-        "Always-Online.txt:settings/always_online"
-        "Development-Mode.txt:settings/development_mode"
-        "Early-Hints.txt:settings/early_hints"
-        "HTTP2.txt:settings/http2"
-        "HTTP3.txt:settings/http3"
-        "IPv6.txt:settings/ipv6"
-        "WebSockets.txt:settings/websockets"
         "TLS-1-3.txt:settings/tls_1_3"
         "Min-TLS-Version.txt:settings/min_tls_version"
-        "Zero-RTT.txt:settings/0rtt"
-        "Image-Resizing.txt:settings/image_resizing"
-        "Prefetch-Preload.txt:settings/prefetch_preload"
-        "Proxy-Read-Timeout.txt:settings/proxy_read_timeout"
-        "Opportunistic-Encryption.txt:settings/opportunistic_encryption"
-        "TLS-Client-Auth.txt:settings/tls_client_auth"
         "Ciphers.txt:settings/ciphers"
+        "HTTP3.txt:settings/http3"
+        "HTTP2.txt:settings/http2"
+        "IPv6.txt:settings/ipv6"
+        "Zero-RTT.txt:settings/0rtt"
+        "WebSockets.txt:settings/websockets"
+        "Early-Hints.txt:settings/early_hints"
+        "Image-Resizing.txt:settings/image_resizing"
         "WebP.txt:settings/webp"
+        "Development-Mode.txt:settings/development_mode"
+        "Always-Online.txt:settings/always_online"
         "Hotlink-Protection.txt:settings/hotlink_protection"
         "Server-Side-Excludes.txt:settings/server_side_excludes"
+        "Security-level.txt:settings/security_level"
+        "Challenge-TTL.txt:settings/challenge_ttl"
+        "Browser-Check.txt:settings/browser_check"
         
-        # Security settings (basic ones not fully covered by Configuration Rules)
-        "Security-Security-level.txt:settings/security_level"
-        "Security-Challenge-TTL.txt:settings/challenge_ttl"
-        "Security-Browser-Check.txt:settings/browser_check"
-        "Security-replace-insecure-s.txt:settings/replace_insecure_js"
-        "WAF-Setting.txt:settings/waf"
-        
-        # Cloudflare for SaaS
-        "SaaS-Fallback-Origin.txt:custom_hostnames/fallback_origin"
+        # Others
+        "Page_Shield.txt:page_shield"
+        "Custom-Pages.txt:custom_pages"
+        "Managed-Transforms.txt:managed_headers"
+        "Opportunistic-Encryption.txt:settings/opportunistic_encryption"
+        "TLS-Client-Auth.txt:settings/tls_client_auth"
     )
     
     # Backup each endpoint

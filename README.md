@@ -60,22 +60,12 @@ Both scripts create comprehensive backups of the following Cloudflare configurat
 
 ### Zone-Level Data
 
-#### Legacy Endpoints
-- **DNS Records** - All DNS entries for the zone
-- **WAF Rules** - Web Application Firewall rules (legacy)
-- **Custom Pages** - Custom error pages and challenge pages
-- **DNSSEC** - DNSSEC configuration and keys
-- **IP Access Rules** - IP allowlist/blocklist rules
-- **Load Balancers** - Zone-specific load balancer configurations
-- **Page Rules** - Page rules for URL-based configurations
-- **Page Shield** - Content Security Policy and script monitoring
-- **WAF Overrides** - Custom WAF rule overrides
-- **General Settings** - All zone settings
+#### Modern WAF Rules API
+- **WAF Custom Rules** - Custom firewall rules (http_request_firewall_custom phase)
+- **WAF Managed Rules** - Managed firewall rulesets (http_request_firewall_managed phase)
 
 #### Modern Rules API
 - **Rate Limits** - Rate limiting rules (http_ratelimit phase)
-- **URL Normalization** - URL normalization settings
-- **Managed Transforms** - Managed header transformations
 - **Cache Rules** - Caching behavior rules (http_request_cache_settings phase)
 - **Configuration Rules** - Zone configuration overrides (http_config_settings phase)
 - **Redirect Rules** - URL redirects (http_request_dynamic_redirect phase)
@@ -86,39 +76,45 @@ Both scripts create comprehensive backups of the following Cloudflare configurat
 - **Response Header Transform** - Response header modifications (http_response_headers_transform phase)
 - **Compression Rules** - Compression settings (http_request_compress phase)
 
+#### Core Infrastructure
+- **DNS Records** - All DNS entries for the zone
+- **DNSSEC** - DNSSEC configuration and keys
+- **Load Balancers** - Zone-specific load balancer configurations
+- **IP Access Rules** - IP allowlist/blocklist rules
+- **Page Shield** - Content Security Policy and script monitoring
+- **Custom Pages** - Custom error pages and challenge pages
+
 #### CDN and Performance Settings
 - **Smart Tiered Cache** - Smart tiered caching configuration
 - **Cache Reserve** - Cache reserve settings
 - **Argo Smart Routing** - Argo smart routing status
 - **Tiered Caching** - Tiered caching configuration
+- **URL Normalization** - URL normalization settings
+- **Managed Transforms** - Managed header transformations
 
 #### Zone Settings
-- **Always Online** - Always online mode
-- **Development Mode** - Development mode status
-- **Early Hints** - Early hints configuration
-- **HTTP/2** - HTTP/2 support
-- **HTTP/3** - HTTP/3 (QUIC) support
-- **IPv6** - IPv6 compatibility
-- **WebSockets** - WebSocket support
 - **TLS 1.3** - TLS 1.3 configuration
 - **Min TLS Version** - Minimum TLS version
-- **Zero RTT** - 0-RTT connection resumption
-- **Image Resizing** - Image resizing settings
-- **Prefetch Preload** - Prefetch and preload settings
-- **Proxy Read Timeout** - Proxy read timeout
-- **Opportunistic Encryption** - Opportunistic encryption
-- **TLS Client Auth** - TLS client authentication
 - **Ciphers** - Cipher suite configuration
+- **HTTP/3** - HTTP/3 (QUIC) support
+- **HTTP/2** - HTTP/2 support
+- **IPv6** - IPv6 compatibility
+- **Zero RTT** - 0-RTT connection resumption
+- **WebSockets** - WebSocket support
+- **Early Hints** - Early hints configuration
+- **Image Resizing** - Image resizing settings
 - **WebP** - WebP image conversion
+- **Development Mode** - Development mode status
+- **Always Online** - Always online mode
 - **Hotlink Protection** - Hotlink protection
 - **Server Side Excludes** - Server-side excludes
+- **Opportunistic Encryption** - Opportunistic encryption
+- **TLS Client Auth** - TLS client authentication
 
 #### Security Settings
 - **Security Level** - Security level setting
 - **Challenge TTL** - Challenge page TTL
 - **Browser Check** - Browser integrity check
-- **Replace Insecure JS** - Insecure JavaScript replacement
-- **WAF Setting** - WAF on/off status
 
 #### Cloudflare for SaaS
 - **Fallback Origin** - SaaS custom hostname fallback origin configuration
