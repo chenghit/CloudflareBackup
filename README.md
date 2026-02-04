@@ -10,7 +10,8 @@ Cross-platform scripts to create comprehensive Cloudflare configuration backups 
 
 1. Create a folder for your backups
 2. Download the appropriate script for your operating system
-3. Configure the script with your credentials and zone information (see Configuration section)
+3. Copy `config.example` to `config`
+4. Edit `config` file with your API token and domain names (see Configuration section below)
 
 ## Running the Scripts
 
@@ -31,28 +32,37 @@ Cross-platform scripts to create comprehensive Cloudflare configuration backups 
 
 ## Configuration
 
-### Windows Script (cloudflare_backup.bat)
-Replace the following placeholders:
-- `[REPLACE WITH YOUR API TOKEN]`: API token with read permissions for all zones
+Both scripts now use a `config` file for credentials and domain names:
 
-Configure domains (zone IDs are auto-discovered):
-- `Domain1`, `Domain2`, etc.: Your domain names (e.g., "example.com")
+1. **Copy the example config:**
+   ```bash
+   cp config.example config
+   ```
+
+2. **Edit the `config` file:**
+   - Set `API_TOKEN` to your Cloudflare API token (create at: https://dash.cloudflare.com/profile/api-tokens)
+   - Set `DOMAIN1`, `DOMAIN2`, etc. to your domain names
+   - Add more domains as needed (no limit for shell script, 9 domains max for batch script by default)
+
+3. **Security:**
+   - The `config` file is in `.gitignore` and will not be committed to version control
+   - Never share or commit your `config` file with real credentials
+   - Keep your API token secure
+
+**Example config:**
+```
+API_TOKEN=your_actual_cloudflare_api_token
+DOMAIN1=example.com
+DOMAIN2=example.org
+DOMAIN3=example.net
+```
+
+### Windows Script Notes
 - **Maximum 9 domains by default**
+- To support more domains, edit the batch script to add `DOMAIN10`, `DOMAIN11`, etc. variables and update loop counters
 
-**To support more than 9 domains:**
-1. Add more domain variables: `set "Domain10="`, `set "Domain11="`, etc.
-2. Update the loop counter: Change `for /L %%i in (1,1,9)` to `for /L %%i in (1,1,N)` where N is your total domain count
-3. Update the account ID collection loop similarly
-
-**To use fewer domains:**
-- Simply leave unused domain variables empty (e.g., `set "Domain3=""`)
-
-### macOS/Linux Script (cloudflare_backup.sh)
-Replace the following placeholders:
-- `[REPLACE WITH YOUR API TOKEN]`: API token with read permissions for all zones
-- Update the `DOMAINS` array with your domain names (e.g., `DOMAINS=("example.com" "example.org")`)
-
-**No domain count limit** - add as many domains as needed to the array
+### macOS/Linux Script Notes
+- **No domain count limit** - add as many `DOMAIN` entries as needed
 
 ## What Gets Backed Up
 
@@ -75,6 +85,7 @@ Both scripts create comprehensive backups of the following Cloudflare configurat
 - **Request Header Transform** - Request header modifications (http_request_late_transform phase)
 - **Response Header Transform** - Response header modifications (http_response_headers_transform phase)
 - **Compression Rules** - Compression settings (http_request_compress phase)
+- **Cloud Connector Rules** - Cloud storage provider routing rules (Beta)
 
 #### Core Infrastructure
 - **DNS Records** - All DNS entries for the zone

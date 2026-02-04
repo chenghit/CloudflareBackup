@@ -1,0 +1,14 @@
+# Cloudflare Backup Configuration
+# Copy this file to 'config' and fill in your details
+# NEVER commit the 'config' file to version control
+
+# Your Cloudflare API Token (requires read permissions for all zones)
+# Create at: https://dash.cloudflare.com/profile/api-tokens
+API_TOKEN=your_cloudflare_api_token_here
+
+# Your domains (one per line, add as many as needed)
+# Zone IDs will be auto-discovered from domain names
+DOMAIN1=example.com
+DOMAIN2=example2.com
+# DOMAIN3=example3.com
+# Add more domains as needed

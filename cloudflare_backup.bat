@@ -18,19 +18,66 @@ for /f "tokens=1-3 delims=:." %%a in ("%time%") do (
 )
 set "BatchTime=%hour%-%minute%-%second%"
 
-:: Configuration
-set "APIToken=[REPLACE WITH YOUR API TOKEN]"
+:: Check if config file exists
+if not exist "config" (
+    echo Error: 'config' file not found!
+    echo.
+    echo Please create a 'config' file:
+    echo   1. Copy 'config.example' to 'config'
+    echo   2. Edit 'config' and add your API token and domains
+    echo.
+    pause
+    exit /b 1
+)
 
-:: Define domains - zone IDs will be auto-discovered
-set "Domain1=[REPLACE WITH DOMAIN 1]"
-set "Domain2=[REPLACE WITH DOMAIN 2]"
-set "Domain3="
-set "Domain4="
-set "Domain5="
-set "Domain6="
-set "Domain7="
-set "Domain8="
-set "Domain9="
+:: Load configuration from config file
+for /f "usebackq tokens=1,* delims==" %%a in ("config") do (
+    set "line=%%a"
+    if not "!line:~0,1!"=="#" (
+        if "%%a"=="API_TOKEN" set "APIToken=%%b"
+        if "%%a"=="DOMAIN1" set "Domain1=%%b"
+        if "%%a"=="DOMAIN2" set "Domain2=%%b"
+        if "%%a"=="DOMAIN3" set "Domain3=%%b"
+        if "%%a"=="DOMAIN4" set "Domain4=%%b"
+        if "%%a"=="DOMAIN5" set "Domain5=%%b"
+        if "%%a"=="DOMAIN6" set "Domain6=%%b"
+        if "%%a"=="DOMAIN7" set "Domain7=%%b"
+        if "%%a"=="DOMAIN8" set "Domain8=%%b"
+        if "%%a"=="DOMAIN9" set "Domain9=%%b"
+    )
+)
+
+:: Validate API token
+if not defined APIToken (
+    echo Error: API_TOKEN not configured!
+    echo Please edit the 'config' file and set your Cloudflare API token.
+    pause
+    exit /b 1
+)
+if "%APIToken%"=="your_cloudflare_api_token_here" (
+    echo Error: API_TOKEN still has placeholder value!
+    echo Please edit the 'config' file and set your real Cloudflare API token.
+    pause
+    exit /b 1
+)
+
+:: Validate at least one domain is configured
+set "HasDomain="
+for /L %%i in (1,1,9) do (
+    if defined Domain%%i (
+        if not "!Domain%%i!"=="example.com" (
+            if not "!Domain%%i:~0,7!"=="example" (
+                set "HasDomain=1"
+            )
+        )
+    )
+)
+if not defined HasDomain (
+    echo Error: No domains configured!
+    echo Please edit the 'config' file and add at least one domain.
+    pause
+    exit /b 1
+)
 
 echo Starting Cloudflare backup...
 
@@ -115,6 +162,7 @@ for /L %%i in (1,1,9) do (
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/rulesets/phases/http_request_late_transform/entrypoint" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Request-Header-Transform.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/rulesets/phases/http_response_headers_transform/entrypoint" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Response-Header-Transform.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/rulesets/phases/http_request_compress/entrypoint" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Compression-Rules.txt"
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/cloud_connector/rules" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Cloud-Connector-Rules.txt"
             
             :: CDN and Performance Settings
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/cache/smart_tiered_cache" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Smart-Tiered-Cache.txt"

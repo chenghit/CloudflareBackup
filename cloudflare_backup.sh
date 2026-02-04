@@ -1,17 +1,50 @@
 #!/bin/bash
 
-# Cloudflare Backup Script for macOS
+# Cloudflare Backup Script for macOS/Linux
 # Optimized version with associative arrays and auto zone discovery
 
 set -euo pipefail
 
-# Configuration
-API_TOKEN="[REPLACE WITH YOUR API TOKEN]"
+# Check if config file exists
+if [[ ! -f "config" ]]; then
+    echo "❌ Error: 'config' file not found!"
+    echo ""
+    echo "Please create a 'config' file:"
+    echo "  1. Copy 'config.example' to 'config'"
+    echo "  2. Edit 'config' and add your API token and domains"
+    echo ""
+    exit 1
+fi
+
+# Load configuration from config file
+source config
+
+# Validate API token
+if [[ -z "${API_TOKEN:-}" ]] || [[ "$API_TOKEN" == "your_cloudflare_api_token_here" ]]; then
+    echo "❌ Error: API_TOKEN not configured!"
+    echo "Please edit the 'config' file and set your Cloudflare API token."
+    exit 1
+fi
+
+# Build domains array from config
+DOMAINS=()
+for i in {1..99}; do
+    var_name="DOMAIN$i"
+    domain="${!var_name:-}"
+    if [[ -n "$domain" ]] && [[ "$domain" != "example.com" ]] && [[ "$domain" != "example"* ]]; then
+        DOMAINS+=("$domain")
+    fi
+done
+
+# Check if at least one domain is configured
+if [[ ${#DOMAINS[@]} -eq 0 ]]; then
+    echo "❌ Error: No domains configured!"
+    echo "Please edit the 'config' file and add at least one domain."
+    exit 1
+fi
+
 BATCH_DATE=$(date +"%Y-%m-%d")
 BATCH_TIME=$(date +"%H-%M-%S")
-
-# Define domains - zone IDs will be auto-discovered
-DOMAINS=("[REPLACE WITH DOMAIN 1]" "[REPLACE WITH DOMAIN 2]")
 
 # Function to get zone ID for a domain
 get_zone_id() {
@@ -55,6 +88,7 @@ backup_zone() {
         "Request-Header-Transform.txt:rulesets/phases/http_request_late_transform/entrypoint"
         "Response-Header-Transform.txt:rulesets/phases/http_response_headers_transform/entrypoint"        
         "Custom-Error-Rules.txt:rulesets/phases/http_custom_errors/entrypoint"
+        "Cloud-Connector-Rules.txt:cloud_connector/rules"
 
         # Core Infrastructure
         "DNS.txt:dns_records"
