@@ -120,6 +120,26 @@ for %%a in (!AccountIDs!) do (
     curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/%%a/load_balancers/pools" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FolderAccount!\Load-Balancer-Pools.txt"
     echo   Backed up load_balancers/pools
     
+    :: Workers KV Namespaces
+    curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/%%a/storage/kv/namespaces?per_page=100" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FolderAccount!\KV-Namespaces.txt"
+    echo   Backed up KV namespaces
+    
+    for /f "tokens=*" %%n in ('type "!FolderAccount!\KV-Namespaces.txt" ^| jq -r ".result[]? | .id + \"|\" + .title"') do (
+        for /f "tokens=1,2 delims=|" %%p in ("%%n") do (
+            set "NSID=%%p"
+            set "NSTITLE=%%q"
+            set "SAFETITLE=!NSTITLE: =_!"
+            md "!FolderAccount!\KV-!SAFETITLE!" 2>nul
+            curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/%%a/storage/kv/namespaces/!NSID!/keys?limit=1000" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FolderAccount!\KV-!SAFETITLE!\keys.txt"
+            for /f "tokens=*" %%k in ('type "!FolderAccount!\KV-!SAFETITLE!\keys.txt" ^| jq -r ".result[]?.name // empty"') do (
+                if not "%%k"=="" (
+                    curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/%%a/storage/kv/namespaces/!NSID!/values/%%k" -H "Authorization: Bearer !APIToken!" -o "!FolderAccount!\KV-!SAFETITLE!\value-%%k.txt"
+                )
+            )
+            echo   Backed up KV namespace: !NSTITLE!
+        )
+    )
+    
     echo Account backup completed
 )
 
@@ -194,6 +214,20 @@ for /L %%i in (1,1,9) do (
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/security_level" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Security-level.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/challenge_ttl" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Challenge-TTL.txt"
             curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/settings/browser_check" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Browser-Check.txt"
+            
+            :: Snippets
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/snippets" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Snippets.txt"
+            echo   Backed up snippets
+            
+            curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/snippets/snippet_rules" -H "Authorization: Bearer !APIToken!" -H "Content-Type: application/json" -o "!FullFolder!\Snippet-Rules.txt"
+            echo   Backed up snippet rules
+            
+            for /f "tokens=*" %%s in ('type "!FullFolder!\Snippets.txt" ^| jq -r ".result[]?.snippet_name // empty"') do (
+                if not "%%s"=="" (
+                    curl -s -X GET "https://api.cloudflare.com/client/v4/zones/!ZoneID!/snippets/%%s/content" -H "Authorization: Bearer !APIToken!" -o "!FullFolder!\Snippet-%%s.js"
+                    echo   Backed up snippet content: %%s
+                )
+            )
             
             echo Backup completed for !Domain%%i!
             echo.

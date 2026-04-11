@@ -130,11 +130,18 @@ Both scripts create comprehensive backups of the following Cloudflare configurat
 #### Cloudflare for SaaS
 - **Fallback Origin** - SaaS custom hostname fallback origin configuration
 
+#### Snippets
+- **Snippets List** - All code snippets in the zone (metadata)
+- **Snippet Rules** - Routing rules that trigger snippets (expressions and bindings)
+- **Snippet Content** - JavaScript source code for each individual snippet
+
 ### Account-Level Data
 - **IP Lists** - Account-wide IP lists metadata
 - **IP List Items** - Individual items for each list (with kind and name)
 - **Bulk Redirect Rules** - Account-level bulk redirect rulesets
 - **Load Balancer Pools** - Account-wide load balancer pool configurations
+- **Workers KV Namespaces** - All KV namespace metadata
+- **Workers KV Keys & Values** - All keys and their values for each KV namespace
 
 ## Output Structure
 
@@ -149,6 +156,9 @@ Backup Root/
 │       ├── Settings.txt
 │       ├── Cache-Rules.txt
 │       ├── Rate-limits.txt
+│       ├── Snippets.txt
+│       ├── Snippet-Rules.txt
+│       ├── Snippet-my_snippet.js
 │       └── [other configuration files]
 ├── Domain2/
 │   └── YYYY-MM-DD HH-MM-SS/
@@ -157,7 +167,12 @@ Backup Root/
         ├── IP-Lists.txt
         ├── List-Items-ip-MyIPList.txt
         ├── Bulk-Redirect-Rules.txt
-        └── Load-Balancer-Pools.txt
+        ├── Load-Balancer-Pools.txt
+        ├── KV-Namespaces.txt
+        └── KV-My_Namespace/
+            ├── keys-page-1.txt
+            ├── value-config_key.txt
+            └── value-another_key.txt
 ```
 
 Each backup creates timestamped folders containing JSON files with configuration data from the Cloudflare API.
@@ -167,7 +182,7 @@ Each backup creates timestamped folders containing JSON files with configuration
 Both scripts use **Bearer token authentication** (`Authorization: Bearer` header) - the modern Cloudflare API standard.
 
 - Create an API token at: https://dash.cloudflare.com/profile/api-tokens
-- Required permissions: Read access for all zones and account settings
+- Required permissions: Read access for all zones and account settings, plus Snippets Read and Workers KV Storage Read
 - Token is more secure than legacy API key + email authentication
 
 ## Important Notes

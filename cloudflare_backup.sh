@@ -150,6 +150,25 @@ backup_zone() {
         echo "  ✓ Backed up $endpoint"
     done
     
+    # Snippets
+    local snippets=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_id/snippets" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json")
+    echo "$snippets" > "$folder/Snippets.txt"
+    echo "  ✓ Backed up snippets"
+
+    curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_id/snippets/snippet_rules" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json" > "$folder/Snippet-Rules.txt"
+    echo "  ✓ Backed up snippet rules"
+
+    echo "$snippets" | jq -r '.result[]?.snippet_name // empty' | while read -r snippet_name; do
+        [[ -z "$snippet_name" ]] && continue
+        curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_id/snippets/$snippet_name/content" \
+            -H "Authorization: Bearer $API_TOKEN" > "$folder/Snippet-$snippet_name.js"
+        echo "  ✓ Backed up snippet content: $snippet_name"
+    done
+
     echo "✓ Backup completed for $domain"
 }
 
@@ -205,6 +224,44 @@ backup_account() {
         echo "  ⊘ Skipped load_balancers/pools (not configured)"
     fi
     
+    # Workers KV Namespaces
+    local kv_namespaces=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/$account_id/storage/kv/namespaces?per_page=100" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json")
+    echo "$kv_namespaces" > "$folder/KV-Namespaces.txt"
+    echo "  ✓ Backed up KV namespaces"
+
+    echo "$kv_namespaces" | jq -r '.result[]? | .id + "|" + .title' | while IFS='|' read -r ns_id ns_title; do
+        [[ -z "$ns_id" ]] && continue
+        local safe_title=$(echo "$ns_title" | tr ' /:' '_--')
+        mkdir -p "$folder/KV-$safe_title"
+
+        local cursor=""
+        local page=1
+        while true; do
+            local url="https://api.cloudflare.com/client/v4/accounts/$account_id/storage/kv/namespaces/$ns_id/keys?limit=1000"
+            [[ -n "$cursor" ]] && url="$url&cursor=$cursor"
+
+            local keys_response=$(curl -s -X GET "$url" \
+                -H "Authorization: Bearer $API_TOKEN" \
+                -H "Content-Type: application/json")
+            echo "$keys_response" > "$folder/KV-$safe_title/keys-page-$page.txt"
+
+            echo "$keys_response" | jq -r '.result[]?.name // empty' | while read -r key_name; do
+                [[ -z "$key_name" ]] && continue
+                local encoded_key=$(echo "$key_name" | python3 -c "import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip(), safe=''))" 2>/dev/null || echo "$key_name")
+                local safe_file=$(echo "$key_name" | tr '/:*?"<>|\\' '_________')
+                curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/$account_id/storage/kv/namespaces/$ns_id/values/$encoded_key" \
+                    -H "Authorization: Bearer $API_TOKEN" > "$folder/KV-$safe_title/value-$safe_file.txt"
+            done
+
+            cursor=$(echo "$keys_response" | jq -r '.result_info.cursor // empty')
+            [[ -z "$cursor" ]] && break
+            page=$((page + 1))
+        done
+        echo "  ✓ Backed up KV namespace: $ns_title"
+    done
+
     echo "✓ Account backup completed"
 }
 
