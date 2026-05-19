@@ -102,25 +102,30 @@ cf_api "https://api.cloudflare.com/client/v4/user/tokens/verify" --fatal >/dev/n
 echo "  ✓ API token is valid"
 
 # --- Zone/Account ID helpers with caching ---
-declare -A ZONE_IDS=()
-declare -A ACCOUNT_IDS_MAP=()
+CACHED_DOMAINS=()
+CACHED_ZONE_IDS=()
+CACHED_ACCOUNT_IDS=()
 
 get_zone_id() {
     local domain=$1
-    if [[ -n "${ZONE_IDS[$domain]:-}" ]]; then
-        echo "${ZONE_IDS[$domain]}"
-        return
-    fi
+    # Check cache
+    local i
+    for i in "${!CACHED_DOMAINS[@]}"; do
+        if [[ "${CACHED_DOMAINS[$i]}" == "$domain" ]]; then
+            echo "${CACHED_ZONE_IDS[$i]}"
+            return
+        fi
+    done
     local response
     response=$(cf_api "https://api.cloudflare.com/client/v4/zones?name=$domain") || return 1
     local zid
     zid=$(echo "$response" | jq -r '.result[0].id // empty')
     if [[ -n "$zid" ]]; then
-        ZONE_IDS[$domain]="$zid"
-        # Also cache account ID from same response
         local aid
         aid=$(echo "$response" | jq -r '.result[0].account.id // empty')
-        [[ -n "$aid" ]] && ACCOUNT_IDS_MAP[$domain]="$aid"
+        CACHED_DOMAINS+=("$domain")
+        CACHED_ZONE_IDS+=("$zid")
+        CACHED_ACCOUNT_IDS+=("${aid:-}")
     fi
     echo "$zid"
 }
@@ -425,7 +430,7 @@ backup_account() {
 echo "Starting Cloudflare backup..."
 
 # Collect zone IDs and unique account IDs
-declare -a UNIQUE_ACCOUNT_IDS=()
+UNIQUE_ACCOUNT_IDS=()
 for domain in "${DOMAINS[@]}"; do
     zone_id=$(get_zone_id "$domain") || continue
     if [[ -z "$zone_id" ]]; then
@@ -433,8 +438,14 @@ for domain in "${DOMAINS[@]}"; do
         ((ERRORS++)) || true
         continue
     fi
-    # Account ID was cached by get_zone_id
-    local_aid="${ACCOUNT_IDS_MAP[$domain]:-}"
+    # Get account ID from cache
+    local_aid=""
+    for i in "${!CACHED_DOMAINS[@]}"; do
+        if [[ "${CACHED_DOMAINS[$i]}" == "$domain" ]]; then
+            local_aid="${CACHED_ACCOUNT_IDS[$i]}"
+            break
+        fi
+    done
     if [[ -n "$local_aid" ]]; then
         found=0
         for existing in "${UNIQUE_ACCOUNT_IDS[@]:-}"; do
@@ -452,7 +463,13 @@ done
 
 # Backup zones
 for domain in "${DOMAINS[@]}"; do
-    zone_id="${ZONE_IDS[$domain]:-}"
+    zone_id=""
+    for i in "${!CACHED_DOMAINS[@]}"; do
+        if [[ "${CACHED_DOMAINS[$i]}" == "$domain" ]]; then
+            zone_id="${CACHED_ZONE_IDS[$i]}"
+            break
+        fi
+    done
     [[ -z "$zone_id" ]] && continue
     backup_zone "$zone_id" "$domain"
 done

@@ -4,7 +4,7 @@ Bash script to create comprehensive Cloudflare configuration backups using curl 
 
 ## Requirements
 
-- `bash` (4.0+)
+- `bash` (3.2+)
 - `curl`
 - `jq` — [install instructions](https://jqlang.github.io/jq/download/)
 - `python3` (only needed if you use Workers KV with special characters in key names)
