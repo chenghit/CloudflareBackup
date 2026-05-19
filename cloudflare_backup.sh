@@ -6,6 +6,8 @@
 set -euo pipefail
 
 ERRORS=0
+CF_SKIP_FILE="/tmp/.cf_skip_reason.$$"
+trap 'rm -f "$CF_SKIP_FILE"' EXIT
 
 # --- Config parsing (safe, no source) ---
 
@@ -73,9 +75,9 @@ cf_api() {
 
     # Check if response is valid JSON with success field
     local success
-    success=$(echo "$response" | jq -r '.success // empty' 2>/dev/null) || true
+    success=$(echo "$response" | jq -r 'if .success == true then "true" elif .success == false then "false" else "nojson" end' 2>/dev/null) || success="nojson"
 
-    if [[ -z "$success" ]]; then
+    if [[ "$success" == "nojson" ]]; then
         # Not valid JSON or no success field — print raw response
         echo "❌ Non-JSON response: $url" >&2
         echo "$response" | head -c 500 >&2
@@ -86,11 +88,24 @@ cf_api() {
     fi
 
     if [[ "$success" == "false" ]]; then
-        echo "❌ API error: $url" >&2
-        echo "$response" | jq . >&2 2>/dev/null || echo "$response" >&2
-        [[ "$fatal" == "--fatal" ]] && exit 1
-        ((ERRORS++)) || true
-        return 1
+        local error_code error_msg
+        error_code=$(echo "$response" | jq -r '.errors[0].code // 0' 2>/dev/null) || error_code=0
+        error_msg=$(echo "$response" | jq -r '.errors[0].message // "unknown"' 2>/dev/null) || error_msg="unknown"
+        case "$error_code" in
+            9109|6003|6103|10000)
+                # Authentication / permission errors — real failures
+                echo "❌ API error: $url" >&2
+                echo "   $error_msg (code $error_code)" >&2
+                [[ "$fatal" == "--fatal" ]] && exit 1
+                ((ERRORS++)) || true
+                return 1
+                ;;
+            *)
+                # Everything else: not configured / not available / not found
+                echo "$error_msg" > "$CF_SKIP_FILE"
+                return 1
+                ;;
+        esac
     fi
 
     echo "$response"
@@ -207,7 +222,6 @@ backup_zone() {
         "Cloud-Connector-Rules.txt:cloud_connector/rules"
         "DNSSEC.txt:dnssec"
         "Load-Balancers.txt:load_balancers"
-        "SaaS-Fallback-Origin.txt:custom_hostnames/fallback_origin"
         "Smart-Tiered-Cache.txt:cache/smart_tiered_cache"
         "Cache-Reserve.txt:cache/cache_reserve"
         "Argo-Smart-Routing.txt:argo/smart_routing"
@@ -242,9 +256,29 @@ backup_zone() {
         local file="${entry%%:*}"
         local endpoint="${entry#*:}"
         local response
-        response=$(cf_api "https://api.cloudflare.com/client/v4/zones/$zone_id/$endpoint") || continue
-        write_response "$response" "$folder/$file" "$file" || true
+        rm -f "$CF_SKIP_FILE"
+        if response=$(cf_api "https://api.cloudflare.com/client/v4/zones/$zone_id/$endpoint"); then
+            write_response "$response" "$folder/$file" "$file" || true
+        else
+            local reason
+            reason=$(cat "$CF_SKIP_FILE" 2>/dev/null)
+            if [[ -n "$reason" ]]; then
+                echo "  ⊘ Skipped $file ($reason)"
+            else
+                echo "  ❌ Failed $file"
+            fi
+        fi
     done
+
+    # SaaS Fallback Origin — always write raw response (downstream tools need it to detect SaaS)
+    local saas_response
+    saas_response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_id/custom_hostnames/fallback_origin" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json") || true
+    if [[ -n "$saas_response" ]]; then
+        echo "$saas_response" > "$folder/SaaS-Fallback-Origin.txt"
+        echo "  ✓ SaaS-Fallback-Origin.txt"
+    fi
 
     # DNS records (paginated — required, skip zone if empty or failed)
     local dns_response
@@ -263,10 +297,15 @@ backup_zone() {
     echo "$dns_response" > "$folder/DNS.txt"
     echo "  ✓ DNS.txt ($dns_count records)"
 
-    # IP Access Rules (paginated)
+    # IP Access Rules (paginated, max per_page=100)
     local ip_rules_response
-    if ip_rules_response=$(cf_api_paginated "https://api.cloudflare.com/client/v4/zones/$zone_id/firewall/access_rules/rules"); then
+    rm -f "$CF_SKIP_FILE"
+    if ip_rules_response=$(cf_api_paginated "https://api.cloudflare.com/client/v4/zones/$zone_id/firewall/access_rules/rules" 100); then
         write_response "$ip_rules_response" "$folder/IP-Access-Rules.txt" "IP-Access-Rules.txt" || true
+    else
+        local reason
+        reason=$(cat "$CF_SKIP_FILE" 2>/dev/null)
+        echo "  ⊘ Skipped IP-Access-Rules.txt (${reason:-API error})"
     fi
 
     # Snippets
