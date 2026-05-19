@@ -101,35 +101,6 @@ echo "Verifying API token..."
 cf_api "https://api.cloudflare.com/client/v4/user/tokens/verify" --fatal >/dev/null
 echo "  ✓ API token is valid"
 
-# --- Zone/Account ID helpers with caching ---
-CACHED_DOMAINS=()
-CACHED_ZONE_IDS=()
-CACHED_ACCOUNT_IDS=()
-
-get_zone_id() {
-    local domain=$1
-    # Check cache
-    local i
-    for i in "${!CACHED_DOMAINS[@]}"; do
-        if [[ "${CACHED_DOMAINS[$i]}" == "$domain" ]]; then
-            echo "${CACHED_ZONE_IDS[$i]}"
-            return
-        fi
-    done
-    local response
-    response=$(cf_api "https://api.cloudflare.com/client/v4/zones?name=$domain") || return 1
-    local zid
-    zid=$(echo "$response" | jq -r '.result[0].id // empty')
-    if [[ -n "$zid" ]]; then
-        local aid
-        aid=$(echo "$response" | jq -r '.result[0].account.id // empty')
-        CACHED_DOMAINS+=("$domain")
-        CACHED_ZONE_IDS+=("$zid")
-        CACHED_ACCOUNT_IDS+=("${aid:-}")
-    fi
-    echo "$zid"
-}
-
 # --- Paginated API fetch ---
 # Fetches all pages of a paginated endpoint, merges .result arrays.
 # Usage: cf_api_paginated <url_base> [per_page]
@@ -429,29 +400,32 @@ backup_account() {
 # --- Main ---
 echo "Starting Cloudflare backup..."
 
-# Collect zone IDs and unique account IDs
+# Collect zone IDs and unique account IDs (single API call per domain)
 UNIQUE_ACCOUNT_IDS=()
+DOMAIN_ZONE_IDS=()  # parallel array with DOMAINS
+
 for domain in "${DOMAINS[@]}"; do
-    zone_id=$(get_zone_id "$domain") || continue
+    # Single API call to get both zone ID and account ID
+    response=$(cf_api "https://api.cloudflare.com/client/v4/zones?name=$domain") || {
+        DOMAIN_ZONE_IDS+=("")
+        continue
+    }
+    zone_id=$(echo "$response" | jq -r '.result[0].id // empty')
     if [[ -z "$zone_id" ]]; then
         echo "❌ Domain not found: $domain"
         ((ERRORS++)) || true
+        DOMAIN_ZONE_IDS+=("")
         continue
     fi
-    # Get account ID from cache
-    local_aid=""
-    for i in "${!CACHED_DOMAINS[@]}"; do
-        if [[ "${CACHED_DOMAINS[$i]}" == "$domain" ]]; then
-            local_aid="${CACHED_ACCOUNT_IDS[$i]}"
-            break
-        fi
-    done
-    if [[ -n "$local_aid" ]]; then
+    DOMAIN_ZONE_IDS+=("$zone_id")
+
+    account_id=$(echo "$response" | jq -r '.result[0].account.id // empty')
+    if [[ -n "$account_id" ]]; then
         found=0
         for existing in "${UNIQUE_ACCOUNT_IDS[@]:-}"; do
-            [[ "$existing" == "$local_aid" ]] && found=1 && break
+            [[ "$existing" == "$account_id" ]] && found=1 && break
         done
-        [[ $found -eq 0 ]] && UNIQUE_ACCOUNT_IDS+=("$local_aid")
+        [[ $found -eq 0 ]] && UNIQUE_ACCOUNT_IDS+=("$account_id")
     fi
 done
 
@@ -462,16 +436,10 @@ for account_id in "${UNIQUE_ACCOUNT_IDS[@]:-}"; do
 done
 
 # Backup zones
-for domain in "${DOMAINS[@]}"; do
-    zone_id=""
-    for i in "${!CACHED_DOMAINS[@]}"; do
-        if [[ "${CACHED_DOMAINS[$i]}" == "$domain" ]]; then
-            zone_id="${CACHED_ZONE_IDS[$i]}"
-            break
-        fi
-    done
+for i in "${!DOMAINS[@]}"; do
+    zone_id="${DOMAIN_ZONE_IDS[$i]}"
     [[ -z "$zone_id" ]] && continue
-    backup_zone "$zone_id" "$domain"
+    backup_zone "$zone_id" "${DOMAINS[$i]}"
 done
 
 echo ""
