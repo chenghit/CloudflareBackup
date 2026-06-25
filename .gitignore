@@ -1,0 +1,9 @@
+# Configuration file with credentials
+config
+
+# Backup folders
+*/
+
+# OS files
+**/.DS_Store
+Thumbs.db
