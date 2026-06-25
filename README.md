@@ -1,5 +1,7 @@
 # CloudflareBackup
 
+English | [简体中文](README.zh-CN.md)
+
 Bash script to create comprehensive Cloudflare configuration backups using curl and the Cloudflare API.
 
 ## Requirements
@@ -8,7 +10,7 @@ Bash script to create comprehensive Cloudflare configuration backups using curl 
 - `curl`
 - `jq` — [install instructions](https://jqlang.github.io/jq/download/)
 - `python3` (only needed if you use Workers KV with special characters in key names)
-- Valid Cloudflare User API token with read permissions
+- Valid Cloudflare credentials — either an **API Token** with read permissions, or a **Global API Key** + account email
 
 ## Setup
 
@@ -21,7 +23,7 @@ cp config.example config
 # Edit config with your editor
 ```
 
-**Example config:**
+**Example config (API Token — recommended):**
 
 ```
 API_TOKEN=your_actual_cloudflare_api_token
@@ -29,6 +31,18 @@ DOMAIN1=example.com
 DOMAIN2=example.org
 DOMAIN3=example.net
 ```
+
+**Or with a Global API Key (legacy):** leave `API_TOKEN` blank and set both:
+
+```
+API_EMAIL=you@example.com
+API_KEY=your_global_api_key
+DOMAIN1=example.com
+```
+
+If `API_TOKEN` is set it takes precedence; otherwise the script falls back to the Global API Key.
+
+> ⚠️ The Global API Key grants full account access and cannot be scoped or limited like an API Token. Prefer the API Token when you can. The key lives on the same [API Tokens page](https://dash.cloudflare.com/profile/api-tokens), under the **API Keys** section → **Global API Key** → **View**.
 
 No limit on the number of domains — add `DOMAIN4`, `DOMAIN5`, etc. as needed.
 

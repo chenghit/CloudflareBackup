@@ -19,6 +19,8 @@ if [[ ! -f "config" ]]; then
 fi
 
 API_TOKEN=""
+API_EMAIL=""
+API_KEY=""
 declare -a DOMAINS=()
 
 while IFS='=' read -r key value; do
@@ -31,7 +33,9 @@ while IFS='=' read -r key value; do
     value="${value%"${value##*[![:space:]]}"}"
     case "$key" in
         API_TOKEN) API_TOKEN="$value" ;;
-        DOMAIN*) 
+        API_EMAIL) API_EMAIL="$value" ;;
+        API_KEY) API_KEY="$value" ;;
+        DOMAIN*)
             if [[ -n "$value" && "$value" != "example.com" && "$value" != example* ]]; then
                 DOMAINS+=("$value")
             fi
@@ -39,8 +43,18 @@ while IFS='=' read -r key value; do
     esac
 done < config
 
-if [[ -z "$API_TOKEN" || "$API_TOKEN" == "your_cloudflare_api_token_here" ]]; then
-    echo "❌ Error: API_TOKEN not configured!"
+# Normalize placeholder token to empty so we can fall back to Global API Key
+[[ "$API_TOKEN" == "your_cloudflare_api_token_here" ]] && API_TOKEN=""
+
+# Build curl auth args: prefer API Token, else fall back to Global API Key.
+declare -a CF_AUTH_ARGS=()
+if [[ -n "$API_TOKEN" ]]; then
+    CF_AUTH_ARGS=(-H "Authorization: Bearer $API_TOKEN")
+elif [[ -n "$API_EMAIL" && -n "$API_KEY" ]]; then
+    CF_AUTH_ARGS=(-H "X-Auth-Email: $API_EMAIL" -H "X-Auth-Key: $API_KEY")
+else
+    echo "❌ Error: No credentials configured!"
+    echo "  Set API_TOKEN, or set both API_EMAIL and API_KEY (Global API Key)."
     exit 1
 fi
 
@@ -63,7 +77,7 @@ cf_api() {
     local response
 
     response=$(curl -s -X GET "$url" \
-        -H "Authorization: Bearer $API_TOKEN" \
+        "${CF_AUTH_ARGS[@]}" \
         -H "Content-Type: application/json") || true
 
     if [[ -z "$response" ]]; then
@@ -112,9 +126,16 @@ cf_api() {
 }
 
 # --- Pre-flight check ---
-echo "Verifying API token..."
-cf_api "https://api.cloudflare.com/client/v4/user/tokens/verify" --fatal >/dev/null
-echo "  ✓ API token is valid"
+# /user/tokens/verify is API-Token-only; Global API Key verifies via /user.
+if [[ -n "$API_TOKEN" ]]; then
+    echo "Verifying API token..."
+    cf_api "https://api.cloudflare.com/client/v4/user/tokens/verify" --fatal >/dev/null
+    echo "  ✓ API token is valid"
+else
+    echo "Verifying Global API Key..."
+    cf_api "https://api.cloudflare.com/client/v4/user" --fatal >/dev/null
+    echo "  ✓ Global API Key is valid"
+fi
 
 # --- Paginated API fetch ---
 # Fetches all pages of a paginated endpoint, merges .result arrays.
@@ -273,7 +294,7 @@ backup_zone() {
     # SaaS Fallback Origin — always write raw response (downstream tools need it to detect SaaS)
     local saas_response
     saas_response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_id/custom_hostnames/fallback_origin" \
-        -H "Authorization: Bearer $API_TOKEN" \
+        "${CF_AUTH_ARGS[@]}" \
         -H "Content-Type: application/json") || true
     if [[ -n "$saas_response" ]]; then
         echo "$saas_response" > "$folder/SaaS-Fallback-Origin.txt"
@@ -324,7 +345,7 @@ backup_zone() {
             safe_name=$(safe_filename "$snippet_name")
             local content http_code
             content=$(curl -s -w "\n%{http_code}" -X GET "https://api.cloudflare.com/client/v4/zones/$zone_id/snippets/$snippet_name/content" \
-                -H "Authorization: Bearer $API_TOKEN") || true
+                "${CF_AUTH_ARGS[@]}") || true
             http_code="${content##*$'\n'}"
             content="${content%$'\n'*}"
             if [[ "$http_code" != "200" ]]; then
@@ -415,7 +436,7 @@ backup_account() {
                     local kv_http_code
                     kv_http_code=$(curl -s -o "$folder/KV-$safe_title/value-$safe_file.txt" -w "%{http_code}" \
                         -X GET "https://api.cloudflare.com/client/v4/accounts/$account_id/storage/kv/namespaces/$ns_id/values/$encoded_key" \
-                        -H "Authorization: Bearer $API_TOKEN") || true
+                        "${CF_AUTH_ARGS[@]}") || true
                     if [[ "$kv_http_code" != "200" ]]; then
                         echo "  ❌ KV value failed (HTTP $kv_http_code): $ns_title/$key_name" >&2
                         cat "$folder/KV-$safe_title/value-$safe_file.txt" >&2
